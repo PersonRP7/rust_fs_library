@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use dotenvy::dotenv;
+use env_logger::Env;
 use log::{error, info, warn};
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -11,7 +12,6 @@ use std::path::{Path, PathBuf};
 use tokio::fs as tokio_fs;
 use tokio::io::AsyncReadExt;
 use walkdir::WalkDir;
-use env_logger::Env;
 
 #[derive(Debug, Clone)]
 struct Config {
@@ -35,7 +35,8 @@ struct Config {
 impl Config {
     fn from_env() -> Result<Self> {
         dotenv().ok();
-        let get = |k: &str| env::var(k).with_context(|| format!("Missing env var `{}`", k));
+        let get =
+            |k: &str| env::var(k).with_context(|| format!("Missing env var `{}`", k));
 
         let api_key = env::var("API_KEY").ok();
         let dropbox_path = env::var("DROPBOX_PATH").ok();
@@ -108,10 +109,7 @@ fn check_uploaded_log(log_path: &Path, file_path: &Path) -> Result<bool> {
 
 fn log_uploaded_file(log_path: &Path, file_path: &Path) -> Result<()> {
     ensure_log_exists(log_path)?;
-    let mut f = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(log_path)?;
+    let mut f = OpenOptions::new().append(true).create(true).open(log_path)?;
     writeln!(f, "{}", file_path.to_string_lossy())?;
     Ok(())
 }
@@ -126,25 +124,21 @@ fn extract_filename(path: &Path) -> Result<String> {
 
 fn move_file(source: &Path, destination_dir: &Path) -> Result<()> {
     fs::create_dir_all(destination_dir)?;
-    let dest = destination_dir.join(source.file_name().ok_or_else(|| anyhow!("No filename"))?);
+    let dest =
+        destination_dir.join(source.file_name().ok_or_else(|| anyhow!("No filename"))?);
     fs::rename(source, &dest)
         .with_context(|| format!("Failed to move {:?} to {:?}", source, dest))?;
     Ok(())
 }
 
 fn sanitize_filename_spaces(path: &Path) -> Result<PathBuf> {
-    let file_name = path
-        .file_name()
-        .ok_or_else(|| anyhow!("No file name"))?
-        .to_string_lossy();
+    let file_name =
+        path.file_name().ok_or_else(|| anyhow!("No file name"))?.to_string_lossy();
     if !file_name.contains(' ') {
         return Ok(path.to_path_buf());
     }
     let new_name = file_name.replace(' ', "_");
-    let new_path = path
-        .parent()
-        .unwrap_or_else(|| Path::new(""))
-        .join(new_name);
+    let new_path = path.parent().unwrap_or_else(|| Path::new("")).join(new_name);
     fs::rename(path, &new_path)?;
     info!("Renamed file: {:?} -> {:?}", path, new_path);
     Ok(new_path)
@@ -152,11 +146,8 @@ fn sanitize_filename_spaces(path: &Path) -> Result<PathBuf> {
 
 fn collect_files(config: &Config) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    let exts: HashSet<String> = config
-        .file_extensions
-        .iter()
-        .map(|e| e.to_lowercase())
-        .collect();
+    let exts: HashSet<String> =
+        config.file_extensions.iter().map(|e| e.to_lowercase()).collect();
 
     let walker = if config.recurse {
         WalkDir::new(&config.current_directory)

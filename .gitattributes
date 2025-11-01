@@ -4,6 +4,9 @@
 # LF for rust files
 *.rs text eol=lf
 
+# LF for toml files
+*.toml text eol=lf
+
 # LF for markdown files
 *.md text eol=lf
 
