@@ -1,0 +1,21 @@
+# Treat text files consistently
+* text=auto
+
+# LF for rust files
+*.rs text eol=lf
+
+# Force LF for shell scripts
+*.sh text eol=lf
+
+# Force LF for config files and lockfiles
+*.toml text eol=lf
+*.lock text eol=lf
+.env text eol=lf
+
+# Force LF for .py files
+*.py text eol=lf
+
+# Do not change binary files
+*.png -text
+*.jpg -text
+*.ico -text
