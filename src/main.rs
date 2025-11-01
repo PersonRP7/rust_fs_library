@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use tokio::fs as tokio_fs;
 use tokio::io::AsyncReadExt;
 use walkdir::WalkDir;
+use env_logger::Env;
 
 #[derive(Debug, Clone)]
 struct Config {
@@ -313,7 +314,7 @@ async fn send_file(config: &Config, local_file: &Path) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("trace")).init();
     let config = Config::from_env()?;
 
     info!("Starting Dropbox backup service");
