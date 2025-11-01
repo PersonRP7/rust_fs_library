@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use dotenvy::dotenv;
 use log::{error, info, warn};
 use reqwest::StatusCode;
@@ -52,7 +52,9 @@ impl Config {
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>();
-        let recurse = env::var("RECURSE").map(|v| matches!(v.to_lowercase().as_str(), "true" | "1" | "t" ) ).unwrap_or(false);
+        let recurse = env::var("RECURSE")
+            .map(|v| matches!(v.to_lowercase().as_str(), "true" | "1" | "t"))
+            .unwrap_or(false);
         let skip_dirs = env::var("SKIP_DIRS")
             .unwrap_or_default()
             .split(',')
@@ -61,13 +63,31 @@ impl Config {
             .collect::<HashSet<_>>();
         let short_token_file = PathBuf::from(get("SHORT_TOKEN_FILE")?);
 
-        Ok(Self { api_key, api_address, api_refresh_address, dropbox_path, app_key, app_secret, refresh_token, dropbox_dir, uploaded_files_log, uploaded_directory, current_directory, file_extensions, recurse, skip_dirs, short_token_file })
+        Ok(Self {
+            api_key,
+            api_address,
+            api_refresh_address,
+            dropbox_path,
+            app_key,
+            app_secret,
+            refresh_token,
+            dropbox_dir,
+            uploaded_files_log,
+            uploaded_directory,
+            current_directory,
+            file_extensions,
+            recurse,
+            skip_dirs,
+            short_token_file,
+        })
     }
 }
 
 fn ensure_log_exists(path: &Path) -> Result<()> {
     if !path.exists() {
-        if let Some(parent) = path.parent() { fs::create_dir_all(parent)?; }
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
         File::create(path)?;
     }
     Ok(())
@@ -78,34 +98,52 @@ fn check_uploaded_log(log_path: &Path, file_path: &Path) -> Result<bool> {
     let f = File::open(log_path)?;
     let reader = BufReader::new(f);
     for line in reader.lines() {
-        if line? == file_path.to_string_lossy() { return Ok(true); }
+        if line? == file_path.to_string_lossy() {
+            return Ok(true);
+        }
     }
     Ok(false)
 }
 
 fn log_uploaded_file(log_path: &Path, file_path: &Path) -> Result<()> {
     ensure_log_exists(log_path)?;
-    let mut f = OpenOptions::new().append(true).create(true).open(log_path)?;
+    let mut f = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(log_path)?;
     writeln!(f, "{}", file_path.to_string_lossy())?;
     Ok(())
 }
 
 fn extract_filename(path: &Path) -> Result<String> {
-    Ok(path.file_name().ok_or_else(|| anyhow!("No filename in path"))?.to_string_lossy().to_string())
+    Ok(path
+        .file_name()
+        .ok_or_else(|| anyhow!("No filename in path"))?
+        .to_string_lossy()
+        .to_string())
 }
 
 fn move_file(source: &Path, destination_dir: &Path) -> Result<()> {
     fs::create_dir_all(destination_dir)?;
     let dest = destination_dir.join(source.file_name().ok_or_else(|| anyhow!("No filename"))?);
-    fs::rename(source, &dest).with_context(|| format!("Failed to move {:?} to {:?}", source, dest))?;
+    fs::rename(source, &dest)
+        .with_context(|| format!("Failed to move {:?} to {:?}", source, dest))?;
     Ok(())
 }
 
 fn sanitize_filename_spaces(path: &Path) -> Result<PathBuf> {
-    let file_name = path.file_name().ok_or_else(|| anyhow!("No file name"))?.to_string_lossy();
-    if !file_name.contains(' ') { return Ok(path.to_path_buf()); }
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| anyhow!("No file name"))?
+        .to_string_lossy();
+    if !file_name.contains(' ') {
+        return Ok(path.to_path_buf());
+    }
     let new_name = file_name.replace(' ', "_");
-    let new_path = path.parent().unwrap_or_else(|| Path::new("")).join(new_name);
+    let new_path = path
+        .parent()
+        .unwrap_or_else(|| Path::new(""))
+        .join(new_name);
     fs::rename(path, &new_path)?;
     info!("Renamed file: {:?} -> {:?}", path, new_path);
     Ok(new_path)
@@ -113,18 +151,39 @@ fn sanitize_filename_spaces(path: &Path) -> Result<PathBuf> {
 
 fn collect_files(config: &Config) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    let exts: HashSet<String> = config.file_extensions.iter().map(|e| e.to_lowercase()).collect();
+    let exts: HashSet<String> = config
+        .file_extensions
+        .iter()
+        .map(|e| e.to_lowercase())
+        .collect();
 
-    let walker = if config.recurse { WalkDir::new(&config.current_directory).into_iter().filter_map(|e| e.ok()).collect::<Vec<_>>() } else { fs::read_dir(&config.current_directory)?.filter_map(|e| e.ok()).map(|e| WalkDir::new(e.path()).into_iter().next().unwrap().unwrap()).collect() };
+    let walker = if config.recurse {
+        WalkDir::new(&config.current_directory)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .collect::<Vec<_>>()
+    } else {
+        fs::read_dir(&config.current_directory)?
+            .filter_map(|e| e.ok())
+            .map(|e| WalkDir::new(e.path()).into_iter().next().unwrap().unwrap())
+            .collect()
+    };
 
     for entry in walker {
         let path = entry.path();
         if entry.file_type().is_dir() {
-            if config.skip_dirs.contains(&entry.file_name().to_string_lossy().to_string()) { continue; }
+            if config
+                .skip_dirs
+                .contains(&entry.file_name().to_string_lossy().to_string())
+            {
+                continue;
+            }
             continue;
         }
         if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-            if exts.contains(&format!(".{}", ext.to_lowercase())) || exts.contains(&ext.to_lowercase()) {
+            if exts.contains(&format!(".{}", ext.to_lowercase()))
+                || exts.contains(&ext.to_lowercase())
+            {
                 let sanitized = sanitize_filename_spaces(path)?;
                 files.push(sanitized);
             }
@@ -148,13 +207,19 @@ async fn read_short_token_or_create(config: &Config) -> Result<String> {
 }
 
 async fn write_short_token(path: &Path, token: &str) -> Result<()> {
-    if let Some(parent) = path.parent() { tokio_fs::create_dir_all(parent).await.ok(); }
-    tokio_fs::write(path, token).await.with_context(|| format!("Write short token file: {:?}", path))
+    if let Some(parent) = path.parent() {
+        tokio_fs::create_dir_all(parent).await.ok();
+    }
+    tokio_fs::write(path, token)
+        .await
+        .with_context(|| format!("Write short token file: {:?}", path))
 }
 
 async fn get_new_short_token(config: &Config) -> Result<String> {
     #[derive(Deserialize)]
-    struct Resp { access_token: String }
+    struct Resp {
+        access_token: String,
+    }
 
     info!("Requesting new short-lived access token...");
     let client = reqwest::Client::new();
@@ -178,7 +243,12 @@ async fn get_new_short_token(config: &Config) -> Result<String> {
     Ok(body.access_token)
 }
 
-async fn upload_file_once(client: &reqwest::Client, config: &Config, local_file: &Path, short_token: &str) -> Result<()> {
+async fn upload_file_once(
+    client: &reqwest::Client,
+    config: &Config,
+    local_file: &Path,
+    short_token: &str,
+) -> Result<()> {
     let path_arg = format!("{}/{}", config.dropbox_dir, extract_filename(local_file)?);
     let dropbox_arg = serde_json::json!({
         "autorename": false,
