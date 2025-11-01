@@ -4,6 +4,9 @@
 # LF for rust files
 *.rs text eol=lf
 
+# LF for markdown files
+*.md text eol=lf
+
 # Force LF for shell scripts
 *.sh text eol=lf
 
