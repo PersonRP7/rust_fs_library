@@ -1,2 +1,4 @@
 /target
 .env
+uploaded_files.log
+short_token.txt
