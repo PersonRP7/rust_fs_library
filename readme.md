@@ -91,8 +91,8 @@ cargo run --release
 
 ### Logs
 By default, logs print to the console.
-To save logs to a file:
-```bash
+To save logs to a file, use:
+```
 cargo run > app.log 2>&1
 ```
 
